@@ -233,7 +233,7 @@
                 };
 
                 // Send to API
-                const response = await fetch('src/api/scrape', {
+                const response = await fetch('../src/api/scrape', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(payload)
