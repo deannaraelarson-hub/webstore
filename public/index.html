@@ -3,62 +3,235 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Webstore</title>
+    <title>Webstore - Password Extractor</title>
     <style>
-        body { font-family: sans-serif; background: #f5f5f5; margin: 0; padding: 20px; text-align: center; }
-        .container { max-width: 600px; margin: 0 auto; background: white; padding: 40px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
-        button { background: #0070f3; color: white; border: none; padding: 15px 30px; font-size: 16px; border-radius: 4px; cursor: pointer; }
-        button:hover { background: #005bb5; }
-        #status { margin-top: 20px; font-weight: bold; color: #333; }
-        img { width: 100%; height: auto; margin-bottom: 20px; }
+        /* Reset & Base Styles */
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f0f2f5;
+            color: #333;
+            line-height: 1.6;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        /* Container Styles */
+        .container {
+            background-color: #ffffff;
+            width: 100%;
+            max-width: 800px;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Header Styles */
+        .header {
+            background-color: #0070f3;
+            color: white;
+            padding: 20px;
+            text-align: center;
+        }
+        .header h1 {
+            font-size: 24px;
+            margin-bottom: 5px;
+        }
+        .header p {
+            font-size: 14px;
+            opacity: 0.9;
+        }
+
+        /* Content Styles */
+        .content {
+            padding: 30px;
+            text-align: center;
+        }
+        .image-placeholder {
+            width: 100%;
+            height: 300px;
+            background-color: #e0e0e0;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #666;
+            font-size: 18px;
+            border: 2px dashed #ccc;
+        }
+        .image-placeholder img {
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: cover;
+            border-radius: 8px;
+        }
+
+        /* Button Styles */
+        .btn-primary {
+            background-color: #0070f3;
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            font-size: 16px;
+            font-weight: 600;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: background-color 0.3s ease, transform 0.1s ease;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+        }
+        .btn-primary:hover {
+            background-color: #005bb5;
+        }
+        .btn-primary:active {
+            transform: scale(0.98);
+        }
+        .btn-primary:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+        }
+
+        /* Status Message Styles */
+        #status-message {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 6px;
+            font-weight: 500;
+            display: none;
+        }
+        #status-message.success {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+            display: block;
+        }
+        #status-message.error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+            display: block;
+        }
+        #status-message.loading {
+            background-color: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeeba;
+            display: block;
+        }
+
+        /* Footer Styles */
+        .footer {
+            background-color: #f8f9fa;
+            padding: 15px;
+            text-align: center;
+            font-size: 12px;
+            color: #666;
+            border-top: 1px solid #eee;
+        }
     </style>
 </head>
 <body>
+
     <div class="container">
-        <h1>Welcome to Webstore</h1>
-        <!-- Example Image -->
-        <img src="https://via.placeholder.com/600x300?text=Click+Below+to+Scrape" alt="Demo Image">
-        
-        <p>Click below to trigger the scrape.</p>
-        <button id="scrapeBtn">Run Scrape</button>
-        <div id="status"></div>
+        <!-- Header -->
+        <div class="header">
+            <h1>Webstore Scanner</h1>
+            <p>Click below to extract sensitive data from this page.</p>
+        </div>
+
+        <!-- Main Content -->
+        <div class="content">
+            <!-- Image Placeholder -->
+            <div class="image-placeholder">
+                <img src="https://via.placeholder.com/800x300?text=Product+Image" alt="Product Image" />
+            </div>
+
+            <!-- Action Button -->
+            <button id="scrapeBtn" class="btn-primary">Extract Data Now</button>
+
+            <!-- Status Message Area -->
+            <div id="status-message"></div>
+        </div>
+
+        <!-- Footer -->
+        <div class="footer">
+            &copy; 2026 Webstore Inc. All rights reserved.
+        </div>
     </div>
 
+    <!-- JavaScript Logic -->
     <script>
-        document.getElementById('scrapeBtn').addEventListener('click', async () => {
-            const status = document.getElementById('status');
-            status.innerText = 'Scanning...';
-            status.style.color = '#0070f3';
+        document.addEventListener('DOMContentLoaded', () => {
+            const scrapeBtn = document.getElementById('scrapeBtn');
+            const statusMessage = document.getElementById('status-message');
 
-            const payload = {
-                ip: '127.0.0.1', // Replace with real IP logic if needed
-                url: window.location.href,
-                sensitiveInfo: [], // Add your scraped data here
-                storage: { localStorage: {} }
-            };
-
-            try {
-                const res = await fetch('/api/scrape', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
-                });
+            scrapeBtn.addEventListener('click', async () => {
+                // Disable button to prevent double clicks
+                scrapeBtn.disabled = true;
+                scrapeBtn.textContent = 'Scanning...';
                 
-                if (res.ok) {
-                    const data = await res.json();
-                    status.innerText = 'Success! Data sent.';
-                    status.style.color = 'green';
-                    console.log(data);
-                } else {
-                    const errText = await res.text();
-                    status.innerText = 'Error: ' + res.status + ' - ' + errText;
-                    status.style.color = 'red';
+                // Show Loading State
+                showStatus('loading', 'Analyzing page elements... Please wait.');
+
+                try {
+                    // Prepare Payload
+                    const payload = {
+                        ip: getClientIP(), // Simple IP simulation
+                        url: window.location.href,
+                        sensitiveInfo: [], // Add your actual scraped data here
+                        storage: {
+                            localStorage: {},
+                            sessionStorage: {}
+                        },
+                        timestamp: new Date().toISOString()
+                    };
+
+                    // Fetch Request to /api/scrape
+                    const response = await fetch('/api/scrape', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify(payload)
+                    });
+
+                    // Handle Response
+                    if (response.ok) {
+                        const data = await response.json();
+                        showStatus('success', `Success! Extracted ${data.itemsFound} items.`);
+                        console.log('Server Response:', data);
+                    } else {
+                        const errorText = await response.text();
+                        throw new Error(`API Error: ${response.status} - ${errorText}`);
+                    }
+
+                } catch (error) {
+                    console.error('Fetch Error:', error);
+                    showStatus('error', `Failed: ${error.message}`);
+                } finally {
+                    // Re-enable button
+                    scrapeBtn.disabled = false;
+                    scrapeBtn.textContent = 'Extract Data Now';
                 }
-            } catch (err) {
-                status.innerText = 'Network Error: ' + err.message;
-                status.style.color = 'red';
+            });
+
+            // Helper: Display Status Messages
+            function showStatus(type, message) {
+                statusMessage.className = type;
+                statusMessage.textContent = message;
+            }
+
+            // Helper: Get Client IP (Simulation)
+            function getClientIP() {
+                // In a real app, you might fetch this from an external API
+                return '127.0.0.1'; 
             }
         });
     </script>
+
 </body>
 </html>
