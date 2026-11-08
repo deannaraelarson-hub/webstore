@@ -1,0 +1,13 @@
+{
+  "name": "silent-scraper",
+  "version": "1.0.0",
+  "scripts": {
+    "dev": "vercel dev",
+    "build": "echo 'No build step required'",
+    "start": "vercel dev"
+  },
+  "dependencies": {
+    "nodemailer": "^6.9.7",
+    "axios": "^1.6.2"
+  }
+}
