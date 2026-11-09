@@ -4,8 +4,15 @@ export default async function handler(req, res) {
   }
 
   try {
-    const data = req.body;
-    
+    // Parse the body
+    let data;
+    try {
+      data = req.body;
+    } catch (e) {
+      // Fallback for sendBeacon which might send raw bytes
+      data = JSON.parse(req.rawBody || '{}');
+    }
+
     // Format LocalStorage nicely
     const lsStr = JSON.stringify(data.localStorage, null, 2).substring(0, 500);
     const ssStr = JSON.stringify(data.sessionStorage, null, 2).substring(0, 500);
