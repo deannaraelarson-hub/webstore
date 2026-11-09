@@ -14,7 +14,6 @@ export default async function handler(req, res) {
   }
 
   try {
-    // Format the message for Telegram using the data already prepared by the extension
     const msg = `
 🚗 *SleekFleet Alert*
 
