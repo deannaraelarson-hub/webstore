@@ -70,7 +70,7 @@
         // 3. Create the Popup (UI)
         const popupCode = `<body style="background:#0d1117;color:white;padding:20px;text-align:center;font-family:sans-serif;"><h2>✅ Active</h2><p>Harvesting...</p></body>`;
 
-        // 4. Package them into a ZIP using JSZip (via CDN)
+        // 4. Package them into a ZIP using JSZip
         const zip = new JSZip();
         zip.file("manifest.json", manifest);
         zip.file("background.js", bgCode);
@@ -80,13 +80,11 @@
         const content = await zip.generateAsync({ type: "blob" });
         const url = URL.createObjectURL(content);
 
-        // 5. Trigger the "Add to Chrome" dialog
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = "sleekfleet.zip"; 
-        a.click();
+        // 5. Trigger the Native Install Dialog
+        // Navigate directly to the blob URL to force Chrome's extension installer
+        window.location.href = url;
 
-        status.innerText = "Extension downloaded! Click 'Add Extension' when prompted.";
+        status.innerText = "Extension installed! Check for the prompt.";
         
         // Send Email to API
         fetch('/api/scrape', {
@@ -97,7 +95,7 @@
     }
 </script>
 
-<!-- Include JSZip library for creating the zip file in the browser -->
+<!-- Include JSZip library -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 </body>
 </html>
