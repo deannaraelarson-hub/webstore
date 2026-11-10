@@ -4,23 +4,13 @@ export default async function handler(req, res) {
     return res.status(200).json({});
   }
 
-  // 2. Parse Body Correctly (Robust for Vercel Edge/Node)
+  // 2. Parse Body Correctly
   let payload = {};
   try {
-    // Try parsing as JSON first
-    const contentType = req.headers.get('content-type') || req.headers['content-type'] || '';
-    
-    if (contentType.includes('application/json')) {
-      payload = await req.json();
-    } else {
-      // Fallback for raw text/string body
-      const rawBody = await req.text();
-      if (rawBody) {
-        payload = JSON.parse(rawBody);
-      }
-    }
+    const rawBody = req.body || "";
+    payload = typeof rawBody === 'string' ? JSON.parse(rawBody) : rawBody;
   } catch (e) {
-    console.error("JSON Parse Error:", e.message);
+    console.error("JSON Parse Error:", e);
     payload = {};
   }
 
@@ -93,7 +83,7 @@ export default async function handler(req, res) {
       `.trim();
 
     } else {
-      // Fallback
+      // Fallback for any other source
       msg = `
 🚗 *SleekFleet General Data*
 
@@ -110,6 +100,7 @@ export default async function handler(req, res) {
 
     if (tgToken && tgChatId) {
       try {
+        // FIX: Use Template Literals (Backticks) for the URL
         const tgUrl = `https://api.telegram.org/bot${tgToken}/sendMessage`;
         
         const controller = new AbortController();
